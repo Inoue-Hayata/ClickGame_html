@@ -25,6 +25,18 @@
             cursor: pointer; /* マウスカーソルを指の形にする */
         }
 
+        #statusBox {
+            position: absolute;
+            right: 10px; /* 親要素の右端から10px */
+            bottom: 10px; /* 親要素の下端から10px */
+            background: rgba(255,255,255,0.8);
+            padding: 8px 12px;
+            border-radius: 8px;
+            text-align: right;
+            pointer-events: none; /* ←クリックを邪魔しない */
+            font-size: 18px;
+        }
+
         /* 下：グラフ（40%） */
         #graphContainer {
             height: 40vh;
@@ -46,6 +58,10 @@
     <!-- 上：ゲーム部分 -->
     <div id="gameContainer">
         <button id="btn" onclick="clicked()">クリック！</button>
+        <div id="statusBox">
+            <div id="scoreDisplay">Score: 0</div>
+            <div id="comboDisplay">Combo: 0</div>
+        </div>
     </div>
 
     <!-- 下：グラフ部分 -->
@@ -63,11 +79,21 @@ const gameContainer = document.getElementById("gameContainer");
 let score = 0;
 let now = Date.now();
 let lastClickTime = Date.now();
+let combo = 0;
+
+function updateStatus() {
+    document.getElementById("scoreDisplay").textContent = "Score: " + Math.floor(score);
+    document.getElementById("comboDisplay").textContent = "Combo: " + combo;
+}
 
 // ボタンをランダム位置へ動かす関数
 function setRandomPosition() {
-    const maxX = gameContainer.clientWidth - btn.offsetWidth; /* ゲームエリアの見えている部分(border未満) - ボタン要素(border以下) */
-    const maxY = gameContainer.clientHeight - btn.offsetHeight;
+    const box = document.getElementById("statusBox");
+    const boxW = box.offsetWidth;
+    const boxH = box.offsetHeight;
+
+    const maxX = gameContainer.clientWidth - btn.offsetWidth - boxW - 10;
+    const maxY = gameContainer.clientHeight - btn.offsetHeight - boxH - 10;
 
     const x = Math.random() * maxX; /* ボタン左端座標 */
     const y = Math.random() * maxY; /* ボタン上端座標 */
@@ -78,8 +104,12 @@ function setRandomPosition() {
 
 // クリックされたらスコアアップ＋移動
 function clicked() {
-    score++;
+    if (now - lastClickTime <= 1000) {
+        combo++;
+    }
+    score += 1 + Math.floor(combo/5);
     lastClickTime = now;
+    updateStatus();
     setRandomPosition();
     addScoreToGraph(score);
 }
@@ -108,7 +138,16 @@ const chart = new Chart(ctx, {
         animation: false, /* プロット追加時のアニメーション */
         responsive: true, /* グラフ自動調整 */
         maintainAspectRatio: false,
-        scales: { y: { beginAtZero: true } }
+        scales: { 
+            x: {
+                ticks: {
+                    display: false // ★ 横軸の数字を非表示
+                }
+            },
+            y: { 
+                beginAtZero: true 
+            } 
+        }
     }
 });
 
@@ -132,6 +171,10 @@ setInterval(() => {
     now = Date.now();
     const elapsed = (now - lastClickTime) / 1000; // 経過秒数
 
+    if (now - lastClickTime > 1000) {
+        combo = 0;
+    }
+
     // 減衰量の計算（好みで調整）
     const decaySpeed = 0.5*Math.min(score, 100)/100; //減衰率0.5(スコア100までは減衰ポイントを軽減)
     const decrease = elapsed * decaySpeed;
@@ -140,6 +183,7 @@ setInterval(() => {
 
     if (score < 0) score = 0;
 
+    updateStatus();
     // グラフに追加
     addScoreToGraph(score);
 }, 100);
